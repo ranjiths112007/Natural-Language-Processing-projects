@@ -1,87 +1,71 @@
-# ⌨️ Predictive Smartphone Keyboard — Kneser-Ney 5-Gram Language Model
+# NLP Task 2 — Vectorized Hidden Markov Model & Viterbi Decoding for POS Tagging
 
-A from-scratch implementation of **Kneser-Ney smoothed n-gram language modeling**, the classic statistical technique behind predictive-text keyboards, implemented recursively from unigram to 5-gram order. Built as a Week 1 NLP assignment.
+## Objective
+Build a Part-of-Speech (POS) tagger using a Hidden Markov Model (HMM), with the
+Viterbi decoding step implemented using **fully vectorized NumPy matrix
+operations** (no inner loop over tags), numerical underflow handled via
+**log-space transformation**, and tagging **precision evaluated on complex
+multi-word sentences**.
 
-## Overview
+## Tech Stack
+- Python 3.10+
+- NumPy
+- SciPy (`logsumexp`, used for a probability sanity check)
 
-Given a history of words, e.g. `"the quick brown"`, the model predicts a probability distribution over the next word — the same task your phone's keyboard solves when it suggests `"fox"`.
+## Concept
 
-The core challenge: raw n-gram counting assigns **zero probability** to any phrase never seen during training. Kneser-Ney smoothing fixes this by recursively backing off from high-order n-grams to lower orders whenever data is sparse, guaranteeing every word in the vocabulary always gets some non-zero probability.
-
-## How It Works
-
-**1. Absolute Discounting** — a fixed discount (`0.75`) is subtracted from every observed n-gram count. This "tax" is redistributed to unseen continuations, so nothing ever gets exactly zero probability.
-
-**2. Continuation Probability** — lower-order backoff tiers don't rank words by raw frequency, they rank by **versatility**: how many *distinct* contexts a word has been seen following. This is why "lake" (which follows many different words) outranks "Francisco" (which almost always follows only "San") when backing off to an unseen context.
-
-**3. Recursive Interpolation** — probability at each n-gram order is a blend of:
-```
-P_KN(word | context) = discounted_term  +  λ(context) × P_KN(word | shorter_context)
-```
-recursing down from the 5-gram order all the way to the unigram base case.
-
-## Results
-
-Trained on a small toy corpus, the model passes both correctness checks:
-
-| Check | Result |
+| Term | Meaning |
 |---|---|
-| Σ P(word \| "the quick brown fox") over full vocab | **1.000000** ✅ |
-| Perplexity on in-vocabulary sentence *"The quick brown fox jumps"* | 2.5597 |
-| Perplexity on OOV sentence *"The fast magenta unicorn jumps"* | 5.7640 (no crash) ✅ |
+| **Transition probability** | `P(tag_i \| tag_{i-1})` — likelihood one tag follows another |
+| **Emission probability** | `P(word_i \| tag_i)` — likelihood a tag generates a given word |
+| **Goal** | Find the tag sequence `T` maximizing `P(T\|W)`, equivalent to maximizing `P(W\|T) * P(T)` |
+| **Brute force** | Checking every tag sequence is `O(k^n)` for `n` words and `k` tags — infeasible even for short sentences |
+| **Viterbi (DP)** | Builds a table where each cell `[tag, position]` stores the *best* probability of reaching that tag at that position, reusing sub-results instead of recomputing |
+| **Log-space** | Multiplying many small probabilities underflows to 0 in floating point; working in log-space turns multiplication into addition, avoiding this |
 
-```
-Conditional Likelihood Predictions for context 'the quick brown fox':
- - P(jumps      | context) = 0.710258
- - P(leaped     | context) = 0.710258
- - P(barked     | context) = 0.710258
- - P(river      | context) = 0.006114
-```
+## What Makes This "Vectorized"
 
-Words actually observed completing the context receive high probability mass; unrelated words are correctly scored much lower — and probabilities stay mathematically valid (sum to 1.0) at every context length.
+The baseline version of this algorithm loops over every current tag `j` at each
+timestep and computes its best incoming score with a Python `for` loop. This
+implementation removes that inner loop and replaces it with a single matrix
+operation per timestep:
 
-## Getting Started
-
-### Requirements
-No external dependencies — pure Python standard library (`math`, `collections`).
-
-### Run
-```bash
-python kneser_ney.py
-```
-
-This trains the model on a toy corpus, verifies the probability distribution sums to 1.0, prints sample word predictions, and computes perplexity on both an in-vocabulary and an out-of-vocabulary test sentence.
-
-### Use in your own code
 ```python
-from kneser_ney import KneserNeyLanguageModel
-
-lm = KneserNeyLanguageModel(order=5, discount=0.75)
-lm.fit(["your training sentences go here", "as a list of strings"])
-
-lm.get_probability("fox", ("the", "quick", "brown"))
-lm.calculate_sentence_perplexity("the quick brown fox")
+M = dp[:, t - 1][:, None] + log_trans        # (N, N): every from-tag -> to-tag pair at once
+M = M + log_emit[:, word][None, :]            # broadcast emission over columns
+dp[:, t]          = M.max(axis=0)             # best score landing on each tag
+backpointer[:, t] = M.argmax(axis=0)          # which previous tag produced it
 ```
 
-## Project Structure
+This turns an `O(N)` Python loop per timestep into one `(N, N)` NumPy
+broadcasting operation per timestep — the core requirement of the task.
+
+## Model Setup
+- **Tags (6):** `DET, NOUN, VERB, ADJ, ADV, PREP`
+- **Vocabulary:** 28 words covering determiners, nouns, verbs, adjectives,
+  adverbs, and prepositions, enough to form grammatically complex sentences
+  (e.g. `"a big cat chases the small mouse"`).
+- **Initial, transition, and emission probabilities** are hand-set to reflect
+  realistic English grammar patterns (e.g. determiners are usually followed
+  by nouns or adjectives; verbs are usually followed by adverbs, nouns, or
+  prepositional phrases).
+
+## Evaluation
+Five hand-labeled complex sentences are run through the vectorized Viterbi
+decoder and compared against gold-standard tag sequences to compute
+**token-level tagging precision**:
+
 ```
-.
-├── kneser_ney.py   # KneserNeyLanguageModel class
-└── README.md
+TOKEN-LEVEL TAGGING PRECISION: 30/30 = 100.00%
 ```
 
-## Key Implementation Details
+## How to Run
+```bash
+pip install numpy scipy
+python vectorized_hmm_viterbi.py
+```
 
-- **Vocabulary & `<UNK>` handling**: words appearing only once in training are treated as unknown, and any word not in the trained vocabulary is mapped to `<UNK>` at inference time — this is what lets `calculate_sentence_perplexity` handle out-of-vocabulary input without crashing.
-- **`ngram_counts[n]`**: raw counts for every n-gram order from 1 to 5, collected in a single pass over the corpus.
-- **`history_extensions` / `context_extensions`**: sets tracking, respectively, which words can precede a given suffix and which words can follow a given context — the basis of the continuation-count calculations used at every backoff tier below the highest order.
-- **`lower_order_denominators`**: precomputed so every recursive probability distribution is guaranteed to sum to exactly 1.0, rather than approximately.
-
-## Self-Check
-
-- ✅ Σ P(word | context) over the entire vocabulary equals exactly 1.0 for a sample context
-- ✅ `calculate_sentence_perplexity` runs cleanly on a sentence with out-of-vocabulary words and returns a finite value
-
-## License
-
-MIT — free to use for learning and coursework.
+## Files
+- `vectorized_hmm_viterbi.py` — full implementation (model setup, vectorized
+  Viterbi, evaluation harness)
+- `README.md` — this file
