@@ -1,74 +1,64 @@
-# NLP Task 2 — Vectorized Hidden Markov Model & Viterbi Decoding for POS Tagging
+# Natural Language Processing Projects
 
-## Objective
-Build a Part-of-Speech (POS) tagger using a Hidden Markov Model (HMM), with the
-Viterbi decoding step implemented using **fully vectorized NumPy matrix
-operations** (no inner loop over tags), numerical underflow handled via
-**log-space transformation**, and tagging **precision evaluated on complex
-multi-word sentences**.
+A collection of my **NLP coursework, experiments, and task submissions**, built while learning how computers process, represent, and understand human language.
+
+This repository is intentionally practical: each notebook focuses on one NLP idea and turns the concept into working Python code rather than keeping it purely theoretical.
+
+## What I Worked On
+
+- **Hidden Markov Models & Viterbi decoding** — sequence modelling and POS tagging, including a vectorized implementation in NumPy.
+- **TF-IDF & Bag of Words** — converting text into numerical features for machine-learning workflows.
+- **Word Embeddings** — exploring Word2Vec and document-level representations such as Doc2Vec.
+- **Naive Bayes** — applying probabilistic modelling to text classification.
+- **Kneser-Ney smoothing** — understanding how language models handle unseen or rare n-grams.
+- **Text embeddings and representation techniques** — experiments covering different ways of representing language numerically.
+
+## Repository Structure
+
+```text
+Natural-Language-Processing-projects/
+├── NLP3.ipynb
+├── NLP_Task2_HMM_Viterbi.ipynb
+├── NLP_Task7_Doc2Vec.ipynb
+├── NLP_Task8_Naive_Bayes.ipynb
+├── NLP_Task_4_TF_IDF_BoW.ipynb
+├── Task_5/
+│   ├── README.md
+│   ├── Gutenburg.zip
+│   └── Word2Vec.ipynb
+├── task6 embedding.ipynb
+├── knesar_ney.ipynb
+└── README.md
+```
 
 ## Tech Stack
-- Python 3.10+
-- NumPy
-- SciPy (`logsumexp`, used for a probability sanity check)
 
-## Concept
+**Python · NumPy · SciPy · NLP · Machine Learning · Word Embeddings · Probabilistic Models**
 
-| Term | Meaning |
-|---|---|
-| **Transition probability** | `P(tag_i \| tag_{i-1})` — likelihood one tag follows another |
-| **Emission probability** | `P(word_i \| tag_i)` — likelihood a tag generates a given word |
-| **Goal** | Find the tag sequence `T` maximizing `P(T\|W)`, equivalent to maximizing `P(W\|T) * P(T)` |
-| **Brute force** | Checking every tag sequence is `O(k^n)` for `n` words and `k` tags — infeasible even for short sentences |
-| **Viterbi (DP)** | Builds a table where each cell `[tag, position]` stores the *best* probability of reaching that tag at that position, reusing sub-results instead of recomputing |
-| **Log-space** | Multiplying many small probabilities underflows to 0 in floating point; working in log-space turns multiplication into addition, avoiding this |
+## A Bit About the Learning
 
-## What Makes This "Vectorized"
+The main thing I learned from these tasks is that NLP is not just about calling a pretrained model. A lot of the foundation comes from understanding **how text becomes data**, how probabilities behave in language, and how sequential information can be modelled efficiently.
 
-The baseline version of this algorithm loops over every current tag `j` at each
-timestep and computes its best incoming score with a Python `for` loop. This
-implementation removes that inner loop and replaces it with a single matrix
-operation per timestep:
+The HMM/Viterbi task was especially useful for connecting the theory of sequence modelling with an implementation that uses vectorized NumPy operations and log-space calculations.
 
-```python
-M = dp[:, t - 1][:, None] + log_trans        # (N, N): every from-tag -> to-tag pair at once
-M = M + log_emit[:, word][None, :]            # broadcast emission over columns
-dp[:, t]          = M.max(axis=0)             # best score landing on each tag
-backpointer[:, t] = M.argmax(axis=0)          # which previous tag produced it
-```
+## Running the Notebooks
 
-This turns an `O(N)` Python loop per timestep into one `(N, N)` NumPy
-broadcasting operation per timestep — the core requirement of the task.
+Most notebooks can be opened directly in **Jupyter Notebook, JupyterLab, or Google Colab**. Install the libraries used by the individual notebook before running it.
 
-## Model Setup
-- **Tags (6):** `DET, NOUN, VERB, ADJ, ADV, PREP`
-- **Vocabulary:** 28 words covering determiners, nouns, verbs, adjectives,
-  adverbs, and prepositions, enough to form grammatically complex sentences
-  (e.g. `"a big cat chases the small mouse"`).
-- **Initial, transition, and emission probabilities** are hand-set to reflect
-  realistic English grammar patterns (e.g. determiners are usually followed
-  by nouns or adjectives; verbs are usually followed by adverbs, nouns, or
-  prepositional phrases).
-
-## Evaluation
-Five hand-labeled complex sentences are run through the vectorized Viterbi
-decoder and compared against gold-standard tag sequences to compute
-**token-level tagging precision**:
-
-```
-TOKEN-LEVEL TAGGING PRECISION: 30/30 = 100.00%
-```
-
-## How to Run
 ```bash
-pip install numpy scipy
-python vectorized_hmm_viterbi.py
+pip install numpy scipy gensim
 ```
 
-## Files
-- `vectorized_hmm_viterbi.py` — full implementation (model setup, vectorized
-  Viterbi, evaluation harness)
-- `README.md` — this file
+Some notebooks may require additional packages depending on the experiment.
 
-uplode link 
-https://docs.google.com/forms/d/e/1FAIpQLSe27sXp-jEJ5HbR1U09_9Kz_-v6Vgex0aiSFWw4tHo2EUWWHQ/viewform
+## Coursework
+
+These are primarily **college learning and task-submission projects**. They document my progression from classical NLP techniques toward modern representation and language-modelling concepts.
+
+## Submission
+
+Coursework submission link: https://docs.google.com/forms/d/e/1FAIpQLSe27sXp-jEJ5HbR1U09_9Kz_-v6Vgex0aiSFWw4tHo2EUWWHQ/viewform
+
+---
+
+Built while learning NLP — one task at a time.
